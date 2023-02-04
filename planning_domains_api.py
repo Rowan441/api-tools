@@ -188,7 +188,7 @@ def untag_domain(did, tagname):
 
 def get_problems(did):
     """Return the set of problems for a given domain id"""
-    return map(localize, simple_query("/classical/problems/%d" % did))
+    return list(map(localize, simple_query("/classical/problems/%d" % did)))
 
 def get_problem(pid):
     """Return the problem for a given problem id"""
