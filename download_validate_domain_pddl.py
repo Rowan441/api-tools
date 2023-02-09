@@ -7,8 +7,8 @@
         throws an error"""
 
 import wget
-import os
-import json
+import os, subprocess
+import json, re
 
 import planning_domains_api as api
 
@@ -18,14 +18,19 @@ if not os.path.exists(RESULTS_DIR):
 
 def parse_requirements(domain_file):
         with open(domain_file, 'r') as f:
-            data = f.read()
-            reqs_substr_start = data.find(":requirements") + len(":requirements") + 1
-            reqs_substr_end = reqs_substr_start + data[reqs_substr_start:].find(")")
-            reqs = data[reqs_substr_start:reqs_substr_end].split()
+            domain = f.read()
+            req_index = domain.find(":requirements")
+            reqs_substr_start = domain.rfind('(', 0, req_index)
+            reqs_substr_end = domain.find(")", req_index)
 
-        return reqs
+            # remove requirements from domain
+            domain = domain[:reqs_substr_start] + domain[reqs_substr_end+1:]
 
-domain_ids = map(lambda x: x["domain_id"], api.find_domains(""))
+            val_output = subprocess.check_output("val", "Parser", "domain_file")
+            reqs = map(lambda x: x[1], re.findall("(?<=(Undeclared requirement ))(:[a-zA-Z-]+)", val_output))
+        return set(reqs)
+
+domain_ids = map(lambda x: x["domain_id"], api.find_domains("domain_file"))
 
 domain_reqs = {}
 for domain_id in domain_ids:
