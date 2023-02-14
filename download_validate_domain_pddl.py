@@ -26,11 +26,11 @@ def parse_requirements(domain_file):
             # remove requirements from domain
             domain = domain[:reqs_substr_start] + domain[reqs_substr_end+1:]
 
-            val_output = subprocess.check_output("val", "Parser", "domain_file")
+            val_output = str(subprocess.check_output(["./Parser", domain_file]))
             reqs = map(lambda x: x[1], re.findall("(?<=(Undeclared requirement ))(:[a-zA-Z-]+)", val_output))
-        return set(reqs)
+        return list(set(reqs))
 
-domain_ids = map(lambda x: x["domain_id"], api.find_domains("domain_file"))
+domain_ids = map(lambda x: x["domain_id"], api.find_domains(""))
 
 domain_reqs = {}
 for domain_id in domain_ids:
