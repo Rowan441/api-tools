@@ -17,17 +17,25 @@ if not os.path.exists(RESULTS_DIR):
     os.makedirs(RESULTS_DIR)
 
 def parse_requirements(domain_file):
-        with open(domain_file, 'r') as f:
-            domain = f.read()
-            req_index = domain.find(":requirements")
-            reqs_substr_start = domain.rfind('(', 0, req_index)
-            reqs_substr_end = domain.find(")", req_index)
+        with open(domain_file, 'r+') as f, \
+             open(domain_file+".noreqs") as f2:
+            domain = f.readlines()
+            f.seek(0)
+            for line in domain:
+                if ":requirements" not in line:
+                    f2.write(line)
+            f2.truncate()
 
-            # remove requirements from domain
-            domain = domain[:reqs_substr_start] + domain[reqs_substr_end+1:]
+            # req_index = domain.find(":requirements")
+            # reqs_substr_start = domain.rfind('(', 0, req_index)
+            # reqs_substr_end = domain.find(")", req_index)
 
-            val_output = str(subprocess.check_output(["./Parser", domain_file]))
-            reqs = map(lambda x: x[1], re.findall("(?<=(Undeclared requirement ))(:[a-zA-Z-]+)", val_output))
+            # # remove requirements from domain
+            # domain = domain[:reqs_substr_start] + domain[reqs_substr_end+1:]
+
+        val_output = str(subprocess.check_output(["./Parser", domain_file+".noreqs"]))
+        reqs = map(lambda x: x[1], re.findall("(?<=(Undeclared requirement ))(:[a-zA-Z-]+)", val_output))
+
         return list(set(reqs))
 
 domain_ids = map(lambda x: x["domain_id"], api.find_domains(""))
@@ -36,6 +44,9 @@ domain_reqs = {}
 for domain_id in domain_ids:
     # cybersec (domain 80) currently 404's
     if domain_id == 80:
+        continue
+
+    if domain_id != 8:
         continue
 
     if not os.path.exists(os.path.join(RESULTS_DIR, str(domain_id))):
@@ -61,15 +72,32 @@ for domain_id in domain_ids:
         else:
             domain_file = wget.download(domain_url, out=path_to_domain_file)
 
+        # Parse file for states requirements
+        with open(domain_file, 'r') as f:
+            domain = f.read()
+            req_index = domain.find(":requirements")
+            reqs_substr_start = req_index + 14 #domain.rfind('(', 0, req_index)
+            reqs_substr_end = domain.find(")", req_index)
+
+        # remove requirements from domain
+        reqs_stated = domain[reqs_substr_start:reqs_substr_end].split()
+        print(reqs_substr_start, reqs_substr_end)
+        print(reqs_stated)
+
         # Verify that each domain.pddl files in a domain set have the same requirements
         reqs = parse_requirements(domain_file)
         if domain_set_reqs == None:
             domain_set_reqs = reqs
+            domain_stated_set_reqs = reqs_stated
         else:
             assert(domain_set_reqs == reqs)
+            assert(domain_stated_set_reqs == reqs_stated)
 
     # Keep track of each domain set's requirements
-    domain_reqs[domain_id] = domain_set_reqs
+    domain_reqs[domain_id] = {}
+    domain_reqs[domain_id]["stated"] = domain_stated_set_reqs
+    domain_reqs[domain_id]["val"] = domain_set_reqs
+
 
 # Write each domain set's requirements to a json file
 with open(os.path.join(RESULTS_DIR, 'result.json'), 'w') as fp:
